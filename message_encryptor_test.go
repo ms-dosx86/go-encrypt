@@ -1,4 +1,4 @@
-package crypto
+package encrypt
 
 import (
 	"encoding/base64"
@@ -8,8 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testHKDFInfo = "nyx-message-v1"
+
 func mustEncryptor(keys map[uint16][]byte, currentVer uint16) *MessageEncryptor {
-	e, err := NewMessageEncryptor(keys, currentVer)
+	e, err := NewMessageEncryptor(keys, currentVer, testHKDFInfo)
 	if err != nil {
 		panic(err)
 	}
@@ -27,19 +29,22 @@ func genKey() []byte {
 func TestNewMessageEncryptor(t *testing.T) {
 	key := genKey()
 
-	_, err := NewMessageEncryptor(nil, 1)
+	_, err := NewMessageEncryptor(nil, 1, testHKDFInfo)
 	assert.Error(t, err)
 
-	_, err = NewMessageEncryptor(map[uint16][]byte{}, 1)
+	_, err = NewMessageEncryptor(map[uint16][]byte{}, 1, testHKDFInfo)
 	assert.Error(t, err)
 
-	_, err = NewMessageEncryptor(map[uint16][]byte{1: key}, 2)
+	_, err = NewMessageEncryptor(map[uint16][]byte{1: key}, 2, testHKDFInfo)
 	assert.Error(t, err)
 
-	_, err = NewMessageEncryptor(map[uint16][]byte{1: key[:16]}, 1)
+	_, err = NewMessageEncryptor(map[uint16][]byte{1: key[:16]}, 1, testHKDFInfo)
 	assert.Error(t, err)
 
-	e, err := NewMessageEncryptor(map[uint16][]byte{1: key}, 1)
+	_, err = NewMessageEncryptor(map[uint16][]byte{1: key}, 1, "")
+	assert.Error(t, err)
+
+	e, err := NewMessageEncryptor(map[uint16][]byte{1: key}, 1, testHKDFInfo)
 	require.NoError(t, err)
 	assert.NotNil(t, e)
 }
@@ -138,5 +143,27 @@ func TestDecryptWrongKey(t *testing.T) {
 
 	e2 := mustEncryptor(map[uint16][]byte{1: key2}, 1)
 	_, err = e2.Decrypt(encrypted)
+	assert.Error(t, err)
+}
+
+func TestMessageEncryptorCustomHKDFInfo(t *testing.T) {
+	keys := map[uint16][]byte{1: genKey()}
+
+	encCustom, err := NewMessageEncryptor(keys, 1, "my-domain-v1")
+	require.NoError(t, err)
+	encOther, err := NewMessageEncryptor(keys, 1, testHKDFInfo)
+	require.NoError(t, err)
+
+	plaintext := "secret message"
+	encrypted, err := encCustom.Encrypt(plaintext)
+	require.NoError(t, err)
+
+	// Same HKDF info: decrypt succeeds
+	decrypted, err := encCustom.Decrypt(encrypted)
+	require.NoError(t, err)
+	assert.Equal(t, plaintext, decrypted)
+
+	// Different HKDF info: decrypt fails (different derived key)
+	_, err = encOther.Decrypt(encrypted)
 	assert.Error(t, err)
 }

@@ -1,4 +1,4 @@
-package crypto
+package encrypt
 
 import (
 	"encoding/binary"
@@ -6,22 +6,25 @@ import (
 	"io"
 )
 
-const fileHkdfInfo = "nyx-file-v1"
-
 // FileEncryptor encrypts and decrypts files with versioned keys using streaming I/O.
 // Output format: version(2) || salt(16) || nonce(12) || ciphertext || tag(16)
 type FileEncryptor struct {
-	ring *KeyRing
+	ring     *KeyRing
+	hkdfInfo string
 }
 
 // NewFileEncryptor creates a FileEncryptor with the given versioned keys.
-// currentVer must exist in keys. All keys must be 32 bytes.
-func NewFileEncryptor(keys map[uint16][]byte, currentVer uint16) (*FileEncryptor, error) {
+// currentVer must exist in keys. All keys must be 32 bytes. hkdfInfo is the HKDF domain
+// separation string and must be non-empty.
+func NewFileEncryptor(keys map[uint16][]byte, currentVer uint16, hkdfInfo string) (*FileEncryptor, error) {
+	if hkdfInfo == "" {
+		return nil, errors.New("hkdfInfo must be non-empty")
+	}
 	ring, err := NewKeyRing(keys, currentVer)
 	if err != nil {
 		return nil, err
 	}
-	return &FileEncryptor{ring: ring}, nil
+	return &FileEncryptor{ring: ring, hkdfInfo: hkdfInfo}, nil
 }
 
 // Encrypt reads plaintext from src and writes encrypted data to dst.
@@ -36,7 +39,7 @@ func (e *FileEncryptor) Encrypt(dst io.Writer, src io.Reader) error {
 		return err
 	}
 
-	key, err := e.ring.DeriveKey(masterKey, salt, []byte(fileHkdfInfo))
+	key, err := e.ring.DeriveKey(masterKey, salt, []byte(e.hkdfInfo))
 	if err != nil {
 		return err
 	}
@@ -94,7 +97,7 @@ func (e *FileEncryptor) Decrypt(dst io.Writer, src io.Reader) error {
 	salt := header[2 : 2+SaltSize]
 	nonce := header[2+SaltSize : 2+SaltSize+NonceSize]
 
-	key, err := e.ring.DeriveKey(masterKey, salt, []byte(fileHkdfInfo))
+	key, err := e.ring.DeriveKey(masterKey, salt, []byte(e.hkdfInfo))
 	if err != nil {
 		return err
 	}

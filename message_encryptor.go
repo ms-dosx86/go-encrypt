@@ -1,4 +1,4 @@
-package crypto
+package encrypt
 
 import (
 	"encoding/base64"
@@ -9,25 +9,27 @@ import (
 // minEncryptedSize is the minimum length of decoded payload: version(2) + salt(16) + nonce(12) + 1 byte + tag(16)
 const minEncryptedSize = 2 + SaltSize + NonceSize + 1 + 16
 
-const hkdfInfo = "nyx-message-v1"
-
 // MessageEncryptor encrypts and decrypts message content with versioned keys.
 type MessageEncryptor struct {
-	ring *KeyRing
+	ring     *KeyRing
+	hkdfInfo string
 }
 
 // NewMessageEncryptor creates a MessageEncryptor with the given versioned keys.
-// currentVer must exist in keys.
-func NewMessageEncryptor(keys map[uint16][]byte, currentVer uint16) (*MessageEncryptor, error) {
+// currentVer must exist in keys. hkdfInfo is the HKDF domain separation string and must be non-empty.
+func NewMessageEncryptor(keys map[uint16][]byte, currentVer uint16, hkdfInfo string) (*MessageEncryptor, error) {
+	if hkdfInfo == "" {
+		return nil, errors.New("hkdfInfo must be non-empty")
+	}
 	ring, err := NewKeyRing(keys, currentVer)
 	if err != nil {
 		return nil, err
 	}
-	return &MessageEncryptor{ring: ring}, nil
+	return &MessageEncryptor{ring: ring, hkdfInfo: hkdfInfo}, nil
 }
 
 func (e *MessageEncryptor) deriveKey(masterKey, salt []byte) ([]byte, error) {
-	return e.ring.DeriveKey(masterKey, salt, []byte(hkdfInfo))
+	return e.ring.DeriveKey(masterKey, salt, []byte(e.hkdfInfo))
 }
 
 // Encrypt encrypts plaintext with the current key version.

@@ -1,4 +1,4 @@
-package crypto
+package encrypt
 
 import (
 	"bytes"
@@ -9,8 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testFileHKDFInfo = "nyx-file-v1"
+
 func mustFileEncryptor(keys map[uint16][]byte, currentVer uint16) *FileEncryptor {
-	e, err := NewFileEncryptor(keys, currentVer)
+	e, err := NewFileEncryptor(keys, currentVer, testFileHKDFInfo)
 	if err != nil {
 		panic(err)
 	}
@@ -20,19 +22,22 @@ func mustFileEncryptor(keys map[uint16][]byte, currentVer uint16) *FileEncryptor
 func TestNewFileEncryptor(t *testing.T) {
 	key := genKey()
 
-	_, err := NewFileEncryptor(nil, 1)
+	_, err := NewFileEncryptor(nil, 1, testFileHKDFInfo)
 	assert.Error(t, err)
 
-	_, err = NewFileEncryptor(map[uint16][]byte{}, 1)
+	_, err = NewFileEncryptor(map[uint16][]byte{}, 1, testFileHKDFInfo)
 	assert.Error(t, err)
 
-	_, err = NewFileEncryptor(map[uint16][]byte{1: key}, 2)
+	_, err = NewFileEncryptor(map[uint16][]byte{1: key}, 2, testFileHKDFInfo)
 	assert.Error(t, err)
 
-	_, err = NewFileEncryptor(map[uint16][]byte{1: key[:16]}, 1)
+	_, err = NewFileEncryptor(map[uint16][]byte{1: key[:16]}, 1, testFileHKDFInfo)
 	assert.Error(t, err)
 
-	e, err := NewFileEncryptor(map[uint16][]byte{1: key}, 1)
+	_, err = NewFileEncryptor(map[uint16][]byte{1: key}, 1, "")
+	assert.Error(t, err)
+
+	e, err := NewFileEncryptor(map[uint16][]byte{1: key}, 1, testFileHKDFInfo)
 	require.NoError(t, err)
 	assert.NotNil(t, e)
 }
