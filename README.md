@@ -19,7 +19,7 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"github.com/ms-dosx86/go-encrypt/encrypt"
+	"github.com/ms-dosx86/go-encrypt/encryptor"
 )
 
 func main() {
@@ -60,7 +60,7 @@ import (
 	"crypto/rand"
 	"os"
 
-	"github.com/ms-dosx86/go-encrypt/encrypt"
+	"github.com/ms-dosx86/go-encrypt/encryptor"
 )
 
 func main() {
